@@ -23,8 +23,8 @@ import one.wabbit.web.common.Etiquette
 import one.wabbit.web.common.Timeouts
 import one.wabbit.web.common.applyEtiquette
 import one.wabbit.web.common.applyTimeouts
-import one.wabbit.web.common.retryingHttpCall
-import one.wabbit.web.common.safeBodyPrefix
+import one.wabbit.web.common.responseBodySampleOrNull
+import one.wabbit.web.common.retryingIdempotentHttpCall
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Duration.Companion.seconds
 
@@ -199,7 +199,7 @@ class KtorWikipediaApi(
 
     private suspend fun getBody(configure: io.ktor.client.request.HttpRequestBuilder.() -> Unit): String {
         val response = try {
-            retryingHttpCall {
+            retryingIdempotentHttpCall {
                 httpClient.get(config.apiUrl) {
                     expectSuccess = true
                     applyEtiquette(config.etiquette)
@@ -229,7 +229,7 @@ typealias Wikipedia = KtorWikipediaApi
 private suspend fun Throwable.toWikipediaError(url: String): WikipediaApiError {
     if (this is CancellationException) throw this
     return if (this is ResponseException) {
-        val sample = runCatching { response.safeBodyPrefix(2048) }.getOrNull()
+        val sample = responseBodySampleOrNull()
         WikipediaApiError.Http(url, response.status.value, sample, this)
     } else {
         WikipediaApiError.Network(url, this)
